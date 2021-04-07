@@ -98,22 +98,18 @@ dim(data)
 # Boxplot with Wilcoxon test
 
 # Set up the comparisons
-my.comparisons <- list(c("Blood Donors (Oct19)", "Controls"),
-                       c("Blood Donors (Oct19)", "Exposed Seronegative"),
-                       c("Blood Donors (Oct19)", "PCR+ Seronegative"),
-                       c("Controls", "Exposed Seronegative"),
+my.comparisons <- list(c("Controls", "Exposed Seronegative"),
                        c("Controls", "PCR+ Seronegative"),
                        c("Exposed Seronegative", "PCR+ Seronegative"))
 
 data.wilcox <- data %>%
-  filter(Group.5 %in% c("Blood Donors (Oct19)", "Controls",
+  filter(Group.5 %in% c("Controls",
                         "Exposed Seronegative", "PCR+ Seronegative"))
 wilcox.results <- wilcox_test(Roche~Group.5, data=data.wilcox,
             p.adjust.method = "bonferroni")
 
 fig.s1 <- data %>%
-  filter(Group.5 %in% c("Blood Donors (Oct19)",
-                        "Controls", "Exposed Seronegative",
+  filter(Group.5 %in% c("Controls", "Exposed Seronegative",
                         "PCR+ Seronegative")) %>%
   # mutate(Group.5 = ifelse(Group.5 == "Blood Donors (Oct19)",
   #                         "Blood Donors", Group.5)) %>%
@@ -125,7 +121,7 @@ fig.s1 <- data %>%
   geom_hline(yintercept = 0.442, color="grey", lty=2) +
   theme(axis.text.x = element_text(angle = 90)) +
   xlab("") + ylab("Ro-N-Ig") +
-  stat_compare_means(label.y = 0.25, show.legend=FALSE) +
+  stat_compare_means(label.y = 0.01, show.legend=FALSE) +
   # stat_pvalue_manual(wilcox.results, label = "p.adj.signif", 
   #                    step.increase = 0.06, size=3)
    stat_compare_means(comparisons = my.comparisons, method="wilcox.test",
@@ -133,11 +129,11 @@ fig.s1 <- data %>%
   theme(legend.position = "none")
 fig.s1
 
-ggsave(here_output("Figure_S1.pdf"), height=5, width=6)
-ggsave(here_output("Figure_S1.png"), height=5, width=6)
+ggsave(here_output("Figure_S1.pdf"), height=5, width=4)
+ggsave(here_output("Figure_S1.png"), height=5, width=4)
 
 
-# Figure S2
+#------------------------------------------------ Figure S1
 
 data %>%
   filter(Group.5 %in% c("PCR+ Seronegative")) %>%

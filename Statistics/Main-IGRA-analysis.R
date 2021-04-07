@@ -428,6 +428,35 @@ ggsave(here_output("Figure_3.pdf"), height=4, width=12)
 ggsave(here_output("Figure_3.png"), height=4, width=12)
 
 
+# How many with IgG positives?
+ids.pcrpos.seroneg <- data.long %>%
+  select(LabId, Group.5, Antigen, value) %>%
+  filter(!is.na(Group.5)) %>%
+  filter(Antigen %in% c("Capsid", "SCT", "Membrane", "SNT")) %>%
+  droplevels() %>%
+  spread(Antigen, value) %>%
+  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) | is.na(SCT) | is.na(SNT),
+                           "remove", "keep")) %>%
+  filter(complete %in% "keep") %>%
+  droplevels() %>%
+  select(-complete) %>%
+  gather(Antigen, value, -LabId, -Group.5) %>%
+  mutate(threshold = ifelse(value >40, "Above", "Below")) %>%
+  filter(!is.na(threshold)) %>%
+  group_by(LabId, Group.5, threshold) %>%
+  count() %>%
+  spread(threshold, n) %>%
+  gather(threshold, n, -c(LabId, Group.5)) %>%
+  mutate(n = ifelse(is.na(n), 0, n)) %>%
+  filter(threshold %in% "Above") %>%
+  left_join(n.ind2) %>%
+  filter(Group.5 %in% "PCR+ Seronegative") %>%
+  select(LabId)
+data %>% filter(LabId %in% ids.pcrpos.seroneg$LabId) %>%
+  group_by(Seropositivity.IgG) %>%
+  count()
+
+
 # Figure 3 with new seronegativity/positivity definitions
 
 # Figure 3A (percentage of the 3 antigens)
