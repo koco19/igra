@@ -823,7 +823,7 @@ ggsave(here_output("Figure_4.png"), height=5, width=12)
 # Additional Figures on the correlation of 
 # IgG vs. t-cell antigens
 
-figSI1 <- data.long %>%
+fig.additional <- data.long %>%
   filter(!is.na(Group.5)) %>%
     filter(Group.5 %in% c("Exposed Seropositive", "PCR+ Seropositive",
                         "PCR+ Seronegative")) %>%
@@ -846,10 +846,8 @@ figSI1 <- data.long %>%
                       labels=c(0, 40, 2500)) +
   scale_x_continuous(trans="log2", breaks=c(0.25, 1, 5),
                      labels=c(0.25, 1, 5)) 
-figSI1
+fig.additional
 
-ggsave(here_output("Figure_S1.pdf"), height=5, width=8)
-ggsave(here_output("Figure_S1.png"), height=5, width=8)
 
 
 # Number of individuals for the 4 antigens 
