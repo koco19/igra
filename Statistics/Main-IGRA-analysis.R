@@ -39,22 +39,22 @@ here_r = function (...) here::here("Statistics", ...)
 here_data_tcell = function (...) here::here("Data-t-cell", ...)
 here_output = function (...) here::here("Output", ...)
 
-#source("R_rainclouds.R")
-
 ######################################################## Load data
 load(here_data_tcell("data-raw-tcell-210315.RData"))
+head(data)
 
+# Minor modifications to the data
 data <- data %>%
-  rename(Capsid = "Capsid sub x5",
-         Membrane = "Membrane sub x5",
+  rename(NC = "Capsid sub x5",
+         M = "Membrane sub x5",
          SNT = "SNT sub x5",
          SCT = "SCT sub x5",
          `Pepmix (green)` = "grün sbu x5",
          `Pepmix (yellow)` = "yellow sub x5")
 data.long <- data.long %>%
   mutate(Antigen = case_when(
-    Antigen == "Capsid sub x5" ~ "Capsid",
-    Antigen == "Membrane sub x5" ~ "Membrane",
+    Antigen == "Capsid sub x5" ~ "NC",
+    Antigen == "Membrane sub x5" ~ "M",
     Antigen == "SNT sub x5" ~ "SNT",
     Antigen == "SCT sub x5" ~ "SCT",
     Antigen == "grün sbu x5" ~ "Pepmix (green)",
@@ -66,13 +66,12 @@ data.long <- data.long %>%
 data <- data %>%
   mutate(IgG = as.numeric(IgG))
 
-
 #---------------------------------------------------- Figure 2
 
-# Figure 2a
+#---------------------------------------------------- Figure 2a
 s <- data.long %>%
   filter(Group.5 %in% c("Controls", "PCR+ Seropositive")) %>%
-  filter(Antigen %in% c("Capsid", "Membrane", "SNT", "SCT")) %>%
+  filter(Antigen %in% c("NC", "M", "SNT", "SCT")) %>%
   mutate(value = ifelse(value == 0, 0.01, value)) %>%
   mutate(Group.5 = case_when(
     Group.5 == "Controls" ~ "Controls",
@@ -95,10 +94,10 @@ fig2a <- s %>%
   select(LabId, Group.5, Antigen, value) %>%
   ggplot(aes(x=Group.5, y=value, color=Group.5)) +
   geom_jitter(alpha=0.4, width=0.2) +
-  facet_wrap(~Antigen, ncol=4) +
+  facet_wrap(~fct_inorder(Antigen), ncol=4) +
   scale_y_continuous(trans="log2", breaks=c(0.01, 5, 40, 250, 2500),
                      labels=c(0, 5, 40, 250, 2500)) +
-  xlab("") + ylab(expression(paste("IFN", gamma, " (mU/ml)"))) +
+  xlab("") + ylab(expression(paste("IFN", gamma, " (mIU/ml)"))) +
   theme(legend.position = "none") +
     scale_color_manual(values=cbPalette[c(2,4)]) +
   geom_hline(yintercept=40, color="grey", lty=2) +
@@ -111,12 +110,12 @@ fig2a <- s %>%
   stat_n_text(size=3, y.pos=-8) 
 fig2a
 
-# Figure 2b
+#---------------------------------------------------- Figure 2b
 n.ind <- data.long %>%
   filter(!is.na(Group.5)) %>%
   filter(Group.5 %in% c("Exposed Seropositive", "PCR+ Seropositive",
                         "PCR+ Seronegative")) %>%
-  filter(Antigen %in% c("Capsid", "Membrane", "SCT", "SNT")) %>%
+  filter(Antigen %in% c("NC", "M", "SCT", "SNT")) %>%
   filter(!is.na(value)) %>%
   group_by(Antigen) %>%
   count() %>%
@@ -126,7 +125,7 @@ n.ind
 s <- data.long %>%
   filter(Group.5 %in% c("PCR+ Seropositive", "PCR+ Seronegative",
                         "Exposed Seropositive")) %>%
-  filter(Antigen %in% c("Capsid", "Membrane", "SNT", "SCT")) %>%
+  filter(Antigen %in% c("NC", "M", "SNT", "SCT")) %>%
   mutate(value = ifelse(value == 0, 0.01, value)) %>%
   mutate(Group.5 = case_when(
     Group.5 == "PCR+ Seropositive" ~ "PCR+\nSeropositive",
@@ -149,16 +148,16 @@ sss
 
 mann.whitney <- list(c(sss$Antigen[1], sss$Antigen[3]),
                      c(sss$Antigen[1], sss$Antigen[5]),
-                    # c(sss$Antigen[1], sss$Antigen[7]),
-                     #c(sss$Antigen[3], sss$Antigen[5]),
-                     c(sss$Antigen[3], sss$Antigen[7]))#,
-                     #c(sss$Antigen[5], sss$Antigen[7]))
+                     c(sss$Antigen[1], sss$Antigen[7]),
+                     c(sss$Antigen[3], sss$Antigen[5]),
+                     c(sss$Antigen[3], sss$Antigen[7]),
+                     c(sss$Antigen[5], sss$Antigen[7]))
 
 data_tests <- data.long %>%
   filter(!is.na(Group.5)) %>%
   filter(Group.5 %in% c("Exposed Seropositive", 
                         "PCR+ Seropositive","PCR+ Seronegative")) %>%
-  filter(Antigen %in% c("Capsid", "Membrane", "SCT", "SNT")) %>%
+  filter(Antigen %in% c("NC", "M", "SCT", "SNT")) %>%
   left_join(n.ind) %>%
   mutate(Antigen.new = paste0(Antigen, "\n(n=", n.ind, ")")) %>%
   mutate(value = ifelse(value == 0, 0.1, value)) %>%
@@ -172,16 +171,15 @@ wilcox_test <- wilcox_test(formula = value~Antigen.new,
                            p.adjust.method = "bonferroni",
                            paired=TRUE)
 
-
 fig2b <- s %>%
   left_join(n.ind) %>%
   mutate(Antigen = paste0(Antigen, "\n(n=", n.ind, ")")) %>%
-  ggplot(aes(x=Antigen, y=value)) +
+  ggplot(aes(x=fct_inorder(Antigen), y=value)) +
   geom_jitter(aes(color=Group.5), alpha=0.4, width=0.2) +
   #scale_y_log10() +
    scale_y_continuous(trans="log2", breaks=c(0.01, 5, 40, 250, 2500),
                       labels=c(0, 5, 40, 250, 2500)) +
-  xlab("") + ylab(expression(paste("IFN", gamma, " (mU/ml)"))) +
+  xlab("") + ylab(expression(paste("IFN", gamma, " (mIU/ml)"))) +
   scale_color_manual(values=cbPalette[c(6,8,4)], name="Group",
                      breaks=c("Exposed\nSeropositive", "PCR+\nSeronegative",
                               "PCR+\nSeropositive"),
@@ -192,16 +190,11 @@ fig2b <- s %>%
                size = 7, shape=95) +
  #  stat_compare_means(comparisons = mann.whitney, method = "wilcox.test",
   #                   size=3) 
-  stat_pvalue_manual(wilcox_test, label = "p.adj.signif", paired=TRUE,
+  stat_pvalue_manual(wilcox_test[c(1,4,3),], label = "p.adj.signif", paired=TRUE,
                      y.position = 13, step.increase = 0.06, size=3)
 
   
 fig2b
-
-plot_grid(fig2a, fig2b, labels=c("A", "B"),
-          rel_widths=c(0.5, 0.5))
-ggsave(here_output("Figure_2.pdf"), height=5, width=12)
-ggsave(here_output("Figure_2.png"), height=5, width=12)
 
 # Additional information for Figure 2b
 # Exact p-values
@@ -211,8 +204,8 @@ fig2bpv <- s %>%
   ggplot(aes(x=Antigen, y=value)) +
   geom_jitter(aes(color=Group.5), alpha=0.4, width=0.2) +
   #scale_y_log10() +
-   scale_y_continuous(trans="log2", breaks=c(0.01, 5, 40, 250, 2500),
-                      labels=c(0, 5, 40, 250, 2500)) +
+  scale_y_continuous(trans="log2", breaks=c(0.01, 5, 40, 250, 2500),
+                     labels=c(0, 5, 40, 250, 2500)) +
   xlab("") + ylab(expression(paste("IFN", gamma, " (pg/ml)"))) +
   scale_color_manual(values=cbPalette[c(6,8,4)], name="Group",
                      breaks=c("Exposed\nSeropositive", "PCR+\nSeronegative",
@@ -222,15 +215,9 @@ fig2bpv <- s %>%
   geom_hline(yintercept=40, color="grey", lty=2) +
   stat_summary(geom = "point", fun = "median", col = "black",
                size = 7, shape=95) +
- #  stat_compare_means(comparisons = mann.whitney, method = "wilcox.test",
-  #                   size=3) 
   stat_pvalue_manual(wilcox_test, label = "p.adj", paired=TRUE,
                      y.position = 15, step.increase = 0.1, size=3)
 fig2bpv
-
-# plot_grid(fig2b, fig2bpv, labels=c("Fig.signif", "Fig.pval"),
-#           rel_widths=c(0.5, 0.5))
-# ggsave("Figure_2B.pdf", height=5, width=12)
 
 # Calculate medians of this plot
 s %>%
@@ -238,15 +225,75 @@ s %>%
   summarize(median = median(value))
 
 
-#---------------------------------------------------------------- Figure 3
+#---------------------------------------------------- Figure 2c
+
+s <- data.long %>%
+  #filter(Group.5 %in% c("Controls", "PCR+ Seropositive")) %>%
+  filter(Antigen %in% c("NC", "M", "SNT", "SCT")) %>%
+  mutate(value = ifelse(value == 0, 0.01, value)) %>%
+  mutate(Group.5 = case_when(
+    Group.5 == "Controls" ~ "Controls",
+    Group.5 == "Exposed Seronegative" ~ "Exposed\nSeronegative",
+    Group.5 == "Exposed Seropositive" ~ "Exposed\nSeropositive",
+    Group.5 == "PCR+ Seronegative" ~ "PCR+\nSeronegative",
+    Group.5 == "PCR+ Seropositive" ~ "PCR+\nSeropositive")) %>%
+  filter(!is.na(value))
+s
+ss <- s %>%
+  group_by(Antigen, Group.5) %>%
+  count() %>%
+  rename(n.ind = n)
+ss
+
+sss <- s %>%
+  mutate(zero = ifelse(value == 0.01, TRUE, FALSE)) %>%
+  group_by(Antigen, Group.5, zero) %>%
+  count() 
+sss  
+
+fig2c <- s %>%
+  select(LabId, Group.5, Antigen, value) %>%
+  filter(!is.na(Group.5)) %>%
+  ggplot(aes(x=Group.5, y=value, color=Group.5)) +
+  geom_jitter(alpha=0.4, width=0.2) +
+  facet_wrap(~fct_inorder(Antigen), ncol=4) +
+  scale_y_continuous(trans="log2", breaks=c(0.01, 5, 40, 250, 2500),
+                     labels=c(0, 5, 40, 250, 2500)) +
+  xlab("") + ylab(expression(paste("IFN", gamma, " (mIU/ml)"))) +
+  theme(legend.position = "none") +
+  scale_color_manual(values=cbPalette[c(2,3, 6, 8, 4)]) +
+  geom_hline(yintercept=40, color="grey", lty=2) +
+  stat_summary(geom = "point", fun = "median", col = "black",
+               size = 7, shape=95) +
+  geom_text(data=sss %>% filter(zero), aes(y=0.05,
+                                           label=paste0("n=", n)), size=3) +
+  geom_text(data=sss %>% filter(!zero), aes(y=20000,
+                                            label=paste0("n=", n)), size=3) +
+  stat_n_text(size=3, y.pos=-8) +
+  theme(axis.text.x = element_text(angle = 90))
+
+fig2c
+
+plot_grid(
+  plot_grid(fig2a, fig2b, labels=c("A", "B"),
+          rel_widths=c(0.5, 0.5)),
+  plot_grid(fig2c, labels="C"), nrow=2)
+
+ggsave(here_output("Figure_2.pdf"), height=8, width=12)
+ggsave(here_output("Figure_2.png"), height=8, width=12)
+
+
+#---------------------------------------------------------- Figure 3
+
+#---------------------------------------------------- Figure 3
 
 # Figure 3A (percentage of the 3 antigens)
 n.ind <- data.long %>%
   filter(!is.na(Group.5)) %>%
-  filter(Antigen %in% c("Capsid", "Membrane", "SCT")) %>%
+  filter(Antigen %in% c("NC", "M", "SCT")) %>%
   select(LabId, Group.5, Antigen, value) %>%
   spread(Antigen, value) %>%
-  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) | is.na(SCT), 
+  mutate(complete = ifelse(is.na(NC) | is.na(M) | is.na(SCT), 
                            "remove", "keep")) %>%
   filter(complete %in% "keep") %>%
   group_by(Group.5) %>%
@@ -257,10 +304,10 @@ n.ind
 fig3a <- data.long %>%
   select(LabId, Group.5, Antigen, value) %>%
   filter(!is.na(Group.5)) %>%
-  filter(Antigen %in% c("Capsid", "SCT", "Membrane")) %>%
+  filter(Antigen %in% c("NC", "SCT", "M")) %>%
   droplevels() %>%
   spread(Antigen, value) %>%
-  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) | is.na(SCT), 
+  mutate(complete = ifelse(is.na(NC) | is.na(M) | is.na(SCT), 
                            "remove", "keep")) %>%
   filter(complete %in% "keep") %>%
   droplevels() %>%
@@ -294,7 +341,7 @@ fig3a
 data.chisq.test <- data.long %>%
   select(LabId, Group.5, Antigen, value) %>%
   filter(!is.na(Group.5)) %>%
-  filter(Antigen %in% c("Capsid", "SCT", "Membrane", "SNT")) %>%
+  filter(Antigen %in% c("NC", "SCT", "M", "SNT")) %>%
   droplevels() %>%
   #gather(Antigen, value, -LabId, -Group.5) %>%
   mutate(threshold = ifelse(value >40, 1, 0)) %>%
@@ -320,10 +367,10 @@ chisq.test(M)
 table.fig3a <- data.long %>%
   select(LabId, Group.5, Antigen, value) %>%
   filter(!is.na(Group.5)) %>%
-  filter(Antigen %in% c("Capsid", "SCT", "Membrane")) %>%
+  filter(Antigen %in% c("NC", "SCT", "M")) %>%
   droplevels() %>%
   spread(Antigen, value) %>%
-  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) | is.na(SCT), 
+  mutate(complete = ifelse(is.na(NC) | is.na(M) | is.na(SCT), 
                            "remove", "keep")) %>%
   filter(complete %in% "keep") %>%
   droplevels() %>%
@@ -337,17 +384,19 @@ table.fig3a <- data.long %>%
   count() %>%
   group_by(Group.5) %>%
   mutate(prop = n / sum(n)*100) 
+table.fig3a
 #write.csv(table.fig3a, "Table-Fig3a.csv")  
 
-# Figure 3b
+#---------------------------------------------------- Figure 3b
 
-# Number of individuals for the 4 antigens (subset of the previous one)
+# Number of individuals for the 4 antigens 
+# (subset of the previous one)
 n.ind2 <- data.long %>%
   filter(!is.na(Group.5)) %>%
-  filter(Antigen %in% c("Capsid", "Membrane", "SCT", "SNT")) %>%
+  filter(Antigen %in% c("NC", "M", "SCT", "SNT")) %>%
   select(LabId, Group.5, Antigen, value) %>%
   spread(Antigen, value) %>%
-  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) | is.na(SCT) | is.na(SNT),
+  mutate(complete = ifelse(is.na(NC) | is.na(M) | is.na(SCT) | is.na(SNT),
                            "remove", "keep")) %>%
   filter(complete %in% "keep") %>%
   group_by(Group.5) %>%
@@ -358,10 +407,10 @@ n.ind2
 fig3b <- data.long %>%
   select(LabId, Group.5, Antigen, value) %>%
   filter(!is.na(Group.5)) %>%
-  filter(Antigen %in% c("Capsid", "SCT", "Membrane", "SNT")) %>%
+  filter(Antigen %in% c("NC", "SCT", "M", "SNT")) %>%
   droplevels() %>%
   spread(Antigen, value) %>%
-  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) | is.na(SCT) | is.na(SNT),
+  mutate(complete = ifelse(is.na(NC) | is.na(M) | is.na(SCT) | is.na(SNT),
                            "remove", "keep")) %>%
   filter(complete %in% "keep") %>%
   droplevels() %>%
@@ -395,10 +444,10 @@ fig3b
 table.fig3b <- data.long %>%
   select(LabId, Group.5, Antigen, value) %>%
   filter(!is.na(Group.5)) %>%
-  filter(Antigen %in% c("Capsid", "SCT", "Membrane", "SNT")) %>%
+  filter(Antigen %in% c("NC", "SCT", "M", "SNT")) %>%
   droplevels() %>%
   spread(Antigen, value) %>%
-  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) | 
+  mutate(complete = ifelse(is.na(NC) | is.na(M) | 
                              is.na(SCT) | is.na(SNT),
                            "remove", "keep")) %>%
   filter(complete %in% "keep") %>%
@@ -419,7 +468,6 @@ table.fig3b <- data.long %>%
   group_by(Group.5) %>%
    mutate(prop = n / sum(n)*100) 
 data.frame(table.fig3b)
-
 #write.csv(table.fig3b, "Table-Fig3b.csv")
 
 plot_grid(fig3a, fig3b, labels=c("A", "B"),
@@ -432,10 +480,11 @@ ggsave(here_output("Figure_3.png"), height=4, width=12)
 ids.pcrpos.seroneg <- data.long %>%
   select(LabId, Group.5, Antigen, value) %>%
   filter(!is.na(Group.5)) %>%
-  filter(Antigen %in% c("Capsid", "SCT", "Membrane", "SNT")) %>%
+  filter(Antigen %in% c("NC", "SCT", "M", "SNT")) %>%
   droplevels() %>%
   spread(Antigen, value) %>%
-  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) | is.na(SCT) | is.na(SNT),
+  mutate(complete = ifelse(is.na(NC) | is.na(M) | 
+                             is.na(SCT) | is.na(SNT),
                            "remove", "keep")) %>%
   filter(complete %in% "keep") %>%
   droplevels() %>%
@@ -473,10 +522,10 @@ data.long.b <- data.long %>%
 
 n.ind <- data.long.b %>%
   filter(!is.na(Group.5b)) %>%
-  filter(Antigen %in% c("Capsid", "Membrane", "SCT")) %>%
+  filter(Antigen %in% c("NC", "M", "SCT")) %>%
   select(LabId, Group.5b, Antigen, value) %>%
   spread(Antigen, value) %>%
-  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) |
+  mutate(complete = ifelse(is.na(NC) | is.na(M) |
                              is.na(SCT), 
                            "remove", "keep")) %>%
   filter(complete %in% "keep") %>%
@@ -488,10 +537,10 @@ n.ind
 fig3a.new <- data.long.b %>%
   select(LabId, Group.5b, Antigen, value) %>%
   filter(!is.na(Group.5b)) %>%
-  filter(Antigen %in% c("Capsid", "SCT", "Membrane")) %>%
+  filter(Antigen %in% c("NC", "SCT", "M")) %>%
   droplevels() %>%
   spread(Antigen, value) %>%
-  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) | is.na(SCT), 
+  mutate(complete = ifelse(is.na(NC) | is.na(M) | is.na(SCT), 
                            "remove", "keep")) %>%
   filter(complete %in% "keep") %>%
   droplevels() %>%
@@ -524,7 +573,7 @@ fig3a.new
 data.chisq.test <- data.long.b %>%
   select(LabId, Group.5b, Antigen, value) %>%
   filter(!is.na(Group.5b)) %>%
-  filter(Antigen %in% c("Capsid", "SCT", "Membrane", "SNT")) %>%
+  filter(Antigen %in% c("NC", "SCT", "M", "SNT")) %>%
   droplevels() %>%
   #gather(Antigen, value, -LabId, -Group.5) %>%
   mutate(threshold = ifelse(value >40, 1, 0)) %>%
@@ -551,10 +600,10 @@ chisq.test(M)
 table.fig3a.new <- data.long.b %>%
   select(LabId, Group.5b, Antigen, value) %>%
   filter(!is.na(Group.5b)) %>%
-  filter(Antigen %in% c("Capsid", "SCT", "Membrane")) %>%
+  filter(Antigen %in% c("NC", "SCT", "M")) %>%
   droplevels() %>%
   spread(Antigen, value) %>%
-  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) | is.na(SCT), 
+  mutate(complete = ifelse(is.na(NC) | is.na(M) | is.na(SCT), 
                            "remove", "keep")) %>%
   filter(complete %in% "keep") %>%
   droplevels() %>%
@@ -575,10 +624,10 @@ table.fig3a.new
 # Number of individuals for the 4 antigens (subset of the previous one)
 n.ind2 <- data.long.b %>%
   filter(!is.na(Group.5b)) %>%
-  filter(Antigen %in% c("Capsid", "Membrane", "SCT", "SNT")) %>%
+  filter(Antigen %in% c("NC", "M", "SCT", "SNT")) %>%
   select(LabId, Group.5b, Antigen, value) %>%
   spread(Antigen, value) %>%
-  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) | 
+  mutate(complete = ifelse(is.na(NC) | is.na(M) | 
                              is.na(SCT) | is.na(SNT),
                            "remove", "keep")) %>%
   filter(complete %in% "keep") %>%
@@ -590,10 +639,10 @@ n.ind2
 fig3b.new <- data.long.b %>%
   select(LabId, Group.5b, Antigen, value) %>%
   filter(!is.na(Group.5b)) %>%
-  filter(Antigen %in% c("Capsid", "SCT", "Membrane", "SNT")) %>%
+  filter(Antigen %in% c("NC", "SCT", "M", "SNT")) %>%
   droplevels() %>%
   spread(Antigen, value) %>%
-  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) | 
+  mutate(complete = ifelse(is.na(NC) | is.na(M) | 
                              is.na(SCT) | is.na(SNT),
                            "remove", "keep")) %>%
   filter(complete %in% "keep") %>%
@@ -627,10 +676,10 @@ fig3b.new
 table.fig3b.new <- data.long.b %>%
   select(LabId, Group.5b, Antigen, value) %>%
   filter(!is.na(Group.5b)) %>%
-  filter(Antigen %in% c("Capsid", "SCT", "Membrane", "SNT")) %>%
+  filter(Antigen %in% c("NC", "SCT", "M", "SNT")) %>%
   droplevels() %>%
   spread(Antigen, value) %>%
-  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) | 
+  mutate(complete = ifelse(is.na(NC) | is.na(M) | 
                              is.na(SCT) | is.na(SNT),
                            "remove", "keep")) %>%
   filter(complete %in% "keep") %>%
@@ -666,22 +715,20 @@ plot_grid(fig3a.new, fig3b.new, labels=c("A", "B"),
 
 #------------------------------------------------Figure 4
 
-
 # Correlation Roche vs. t-cell antigens
-
 fig4a <- data.long %>%
   filter(!is.na(Group.5)) %>%
     filter(Group.5 %in% c("Exposed Seropositive", "PCR+ Seropositive",
                         "PCR+ Seronegative")) %>%
-  filter(Antigen %in% c("Capsid", "Membrane", "SCT", "SNT")) %>%
+  filter(Antigen %in% c("NC", "M", "SCT", "SNT")) %>%
   mutate(value = ifelse(value == 0, 0.1, value)) %>%
   ggplot() +
   geom_point(aes(y=value, x=Roche, color=Group.5), alpha=0.4) +
-  facet_wrap(~Antigen) +
+  facet_wrap(~fct_inorder(Antigen)) +
   scale_color_manual(values=cbPalette[c(6, 8, 4)], name="Group") +
   geom_hline(yintercept=40, color="grey5", lty=3) +
   geom_vline(xintercept = 0.422, color="grey5", lty=3) +
-  xlab("Ro-N-Ig") + ylab(expression(paste("IFN", gamma, " (mU/ml)"))) +
+  xlab("Ro-N-Ig") + ylab(expression(paste("IFN", gamma, " (mIU/ml)"))) +
   stat_smooth(aes(x=Roche, y=value), lty=1, se=FALSE,
                color="grey50", formula = y ~ x, method="lm") +
   ggpubr::stat_cor(aes(y=value, x=Roche, hjust=0, vjust=0),
@@ -700,10 +747,10 @@ fig4a
 # Number of individuals for the 4 antigens (subset of the previous one)
 n.ind2 <- data.long %>%
   filter(!is.na(Group.5)) %>%
-  filter(Antigen %in% c("Capsid", "Membrane", "SCT", "SNT")) %>%
+  filter(Antigen %in% c("NC", "M", "SCT", "SNT")) %>%
   select(LabId, Group.5, Antigen, value) %>%
   spread(Antigen, value) %>%
-  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) | is.na(SCT) | is.na(SNT),
+  mutate(complete = ifelse(is.na(NC) | is.na(M) | is.na(SCT) | is.na(SNT),
                            "remove", "keep")) %>%
   filter(complete %in% "keep") %>%
   group_by(Group.5) %>%
@@ -716,10 +763,10 @@ r <- data %>% select(LabId, Roche)
 fig4b <- data.long %>%
   select(LabId, Group.5, Antigen, value, Roche) %>%
   filter(!is.na(Group.5)) %>%
-  filter(Antigen %in% c("Capsid", "SCT", "Membrane", "SNT")) %>%
+  filter(Antigen %in% c("NC", "SCT", "M", "SNT")) %>%
   droplevels() %>%
   spread(Antigen, value) %>%
-  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) | 
+  mutate(complete = ifelse(is.na(NC) | is.na(M) | 
                              is.na(SCT) | is.na(SNT),
                            "remove", "keep")) %>%
   filter(complete %in% "keep") %>%
@@ -773,22 +820,22 @@ ggsave(here_output("Figure_4.pdf"), height=5, width=12)
 ggsave(here_output("Figure_4.png"), height=5, width=12)
 
 
-# Additional Figures on the correltaion of 
+# Additional Figures on the correlation of 
 # IgG vs. t-cell antigens
 
 figSI1 <- data.long %>%
   filter(!is.na(Group.5)) %>%
     filter(Group.5 %in% c("Exposed Seropositive", "PCR+ Seropositive",
                         "PCR+ Seronegative")) %>%
-  filter(Antigen %in% c("Capsid", "Membrane", "SCT", "SNT")) %>%
+  filter(Antigen %in% c("NC", "M", "SCT", "SNT")) %>%
   mutate(value = ifelse(value == 0, 0.1, value)) %>%
   ggplot() +
   geom_point(aes(y=value, x=IgG, color=Group.5), alpha=0.4) +
-  facet_wrap(~Antigen) +
+  facet_wrap(~fct_inorder(Antigen)) +
   scale_color_manual(values=cbPalette[c(6, 8, 4)], name="Group") +
   geom_hline(yintercept=40, color="grey5", lty=3) +
   geom_vline(xintercept = 1.015, color="grey5", lty=3) +
-  xlab("EI-S1-IgG") + ylab(expression(paste("IFN", gamma, " (mU/ml)"))) +
+  xlab("EI-S1-IgG") + ylab(expression(paste("IFN", gamma, " (mIU/ml)"))) +
   stat_smooth(aes(x=IgG, y=value), lty=1, se=FALSE,
                color="grey50", formula = y ~ x, method="lm") +
   ggpubr::stat_cor(aes(y=value, x=IgG, hjust=0, vjust=0),
@@ -801,13 +848,18 @@ figSI1 <- data.long %>%
                      labels=c(0.25, 1, 5)) 
 figSI1
 
-# Number of individuals for the 4 antigens (subset of the previous one)
+ggsave(here_output("Figure_S1.pdf"), height=5, width=8)
+ggsave(here_output("Figure_S1.png"), height=5, width=8)
+
+
+# Number of individuals for the 4 antigens 
+# (subset of the previous one)
 n.ind2 <- data.long.b %>%
   filter(!is.na(Group.5b)) %>%
-  filter(Antigen %in% c("Capsid", "Membrane", "SCT", "SNT")) %>%
+  filter(Antigen %in% c("NC", "M", "SCT", "SNT")) %>%
   select(LabId, Group.5b, Antigen, value) %>%
   spread(Antigen, value) %>%
-  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) | 
+  mutate(complete = ifelse(is.na(NC) | is.na(M) | 
                              is.na(SCT) | is.na(SNT),
                            "remove", "keep")) %>%
   filter(complete %in% "keep") %>%
@@ -821,10 +873,10 @@ r <- data %>% select(LabId, Roche)
 fig4b <- data.long.b %>%
   select(LabId, Group.5b, Antigen, value, Roche) %>%
   filter(!is.na(Group.5b)) %>%
-  filter(Antigen %in% c("Capsid", "SCT", "Membrane", "SNT")) %>%
+  filter(Antigen %in% c("NC", "SCT", "M", "SNT")) %>%
   droplevels() %>%
   spread(Antigen, value) %>%
-  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) | 
+  mutate(complete = ifelse(is.na(NC) | is.na(M) | 
                              is.na(SCT) | is.na(SNT),
                            "remove", "keep")) %>%
   filter(complete %in% "keep") %>%
@@ -878,10 +930,10 @@ r <- data %>% select(LabId, IgG) %>%
 fig4c <- data.long.b %>%
   select(LabId, Group.5b, Antigen, value, IgG) %>%
   filter(!is.na(Group.5b)) %>%
-  filter(Antigen %in% c("Capsid", "SCT", "Membrane", "SNT")) %>%
+  filter(Antigen %in% c("NC", "SCT", "M", "SNT")) %>%
   droplevels() %>%
   spread(Antigen, value) %>%
-  mutate(complete = ifelse(is.na(Capsid) | is.na(Membrane) | 
+  mutate(complete = ifelse(is.na(NC) | is.na(M) | 
                              is.na(SCT) | is.na(SNT),
                            "remove", "keep")) %>%
   filter(complete %in% "keep") %>%
@@ -900,13 +952,6 @@ fig4c <- data.long.b %>%
   left_join(r) %>%
   filter(Group.5b %in% c("PCR+ Seropositive", "PCR+ Seronegative",
                         "Exposed Seropositive", "Exposed Seronegative")) %>%
-#   mutate(Group.5 = case_when(
-# #    Group.5 == "Controls" ~ "Controls",
-#     Group.5 == "PCR+ Seropositive" ~ "PCR+\nSeropositive",
-#     Group.5 == "PCR+ Seronegative" ~ "PCR+\nSeronegative",
-#     Group.5 == "Exposed Seropositive" ~ "Exposed\nSeropositive")) %>%#,
-    #Group.5 == "Exposed Seronegative" ~ "Exposed\nSeronegative")) %>%
- # mutate(Group.5 = paste(Group.5, "(n=", n.ind, ")")) %>%
   ggplot(aes(y=IgG, x=as.numeric(n))) +
   geom_jitter(aes(color=Group.5b), width=0.3, alpha=0.6) +
   #scale_y_continuous(trans="log2") +
