@@ -274,15 +274,15 @@ fig2c <- s %>%
 
 fig2c
 
-plot_grid(
-  plot_grid(fig2a, fig2b, labels=c("A", "B"),
-          rel_widths=c(0.5, 0.5)),
-  plot_grid(fig2c, labels="C"), nrow=2)
+plot_grid(fig2a, fig2b, labels=c("A", "B"),
+          rel_widths=c(0.5, 0.5))
 
-ggsave(here_output("Figure_2.pdf"), height=8, width=12)
-ggsave(here_output("Figure_2.png"), height=8, width=12)
+ggsave(here_output("Figure_2.pdf"), height=5, width=10)
+ggsave(here_output("Figure_2.png"), height=5, width=10)
 
-
+fig2c
+ggsave(here_output("Figure_S2.pdf"), height=5, width=10)
+ggsave(here_output("Figure_S2.png"), height=5, width=10)
 #---------------------------------------------------------- Figure 3
 
 #---------------------------------------------------- Figure 3
